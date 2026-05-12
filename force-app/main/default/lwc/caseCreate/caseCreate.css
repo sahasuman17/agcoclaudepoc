@@ -1,0 +1,32 @@
+/* ── Header bar ────────────────────────────────────────────────────────────── */
+.header-bar {
+    background-color: #16325c;
+    color: white;
+    padding: 0.5rem 1rem;
+    font-size: 1.1rem;
+}
+
+/* ── Sub-header ─────────────────────────────────────────────────────────────── */
+.subheader {
+    border-bottom: 1px solid #dddbda;
+    margin-bottom: 1rem;
+}
+
+.case-number {
+    font-size: 1rem;
+    color: #444;
+}
+
+/* ── Save button — red brand colour (CNH-style) ─────────────────────────────── */
+.save-btn lightning-button {
+    --sds-c-button-brand-color-background: #c23934;
+    --sds-c-button-brand-color-background-hover: #a61c17;
+    --sds-c-button-brand-color-border: #c23934;
+}
+
+/* ── Footer buttons ─────────────────────────────────────────────────────────── */
+.footer-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
