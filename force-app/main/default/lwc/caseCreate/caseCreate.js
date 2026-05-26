@@ -1,199 +1,327 @@
 /**
  * @description Controller for the caseCreate LWC.
- *              Implements the Product Information section for the "Parts Technical Help" case type.
- *              MP-7 scope: asset lookup, part description auto-population, and save-as-draft.
+ *              Handles the Product Information section (MP-7):
+ *              serial-number lookup, asset field population, part picker,
+ *              and save-as-draft flow.
+ *
+ *              Submit / Resolve are stub buttons wired in MP-5.
+ *
  * @author      Suman Saha
- * @story       MP-7
+ * @story       MP-7 — Support Cases: Product Information Section
+ * @apiVersion  66.0
  */
-import { LightningElement, track, wire } from 'lwc';
-import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-import { getPicklistValues, getObjectInfo } from 'lightning/uiObjectInfoApi';
-import NO_CAUSAL_PART_REASON_FIELD from '@salesforce/schema/Case.No_Causal_Part_Reason__c';
-
-import findAssetBySerial  from '@salesforce/apex/CaseCreateController.findAssetBySerial';
+import { LightningElement } from 'lwc';
+import findAssetBySerial from '@salesforce/apex/CaseCreateController.findAssetBySerial';
 import getPartDescription from '@salesforce/apex/CaseCreateController.getPartDescription';
-import saveCaseAsDraft    from '@salesforce/apex/CaseCreateController.saveCaseAsDraft';
+import saveCaseAsDraft from '@salesforce/apex/CaseCreateController.saveCaseAsDraft';
+
+/** @type {Array<{label:string, value:string}>} */
+const NO_PART_REASON_OPTIONS = [
+    { label: 'No Fault Found', value: 'No Fault Found' },
+    { label: 'Legacy Part',    value: 'Legacy Part'    },
+    { label: 'Missing Part',   value: 'Missing Part'   }
+];
 
 export default class CaseCreate extends LightningElement {
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Reactive Properties
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Section collapse state ────────────────────────────────────────────────
+    /** @type {boolean} */
+    isAssetSectionOpen   = true;
+    /** @type {boolean} */
+    isProductSectionOpen = true;
 
-    // Case identifiers (populated after save)
-    @track caseId;
-    @track caseNumber = '';
-    @track status = '';
+    // ── Serial Number / Asset toggle ──────────────────────────────────────────
+    /** @type {string} */
+    serialNumber = '';
+    /** @type {boolean} */
+    serialNotApplicable = false;
 
-    // Serial / Asset
-    @track serialNumber = '';
-    @track assetId;
-    @track assetFound = false;
-    @track assetNotApplicable = false;
+    // ── Asset lookup state ────────────────────────────────────────────────────
+    /** @type {string|null} Salesforce Id of the matched Asset */
+    assetId = null;
+    /** @type {boolean} Controls success message visibility */
+    assetFound = false;
 
-    // Row 1 — disabled after asset lookup
-    @track brand = '';
-    @track machineType = '';
-    @track series = '';
-    @track modelNumber = '';
+    // ── Row 1 — Equipment identity (disabled, populated from Asset) ───────────
+    /** @type {string} */ brand       = '';
+    /** @type {string} */ machineType = '';
+    /** @type {string} */ series      = '';
+    /** @type {string} */ modelNumber = '';
 
-    // Row 2 — conditional editability
-    @track unitOfMeasure = '';
-    @track machineUsage = '';
-    @track usageAvailable = false;
-    @track usedWith = '';
-    @track engineSerial = '';
+    // ── Row 2 — Usage info ────────────────────────────────────────────────────
+    /** @type {string} */  unitOfMeasure  = '';
+    /** @type {string} */  machineUsage   = '';
+    /** @type {boolean} */ usageAvailable = false;  // drives Machine Usage disabled state
+    /** @type {string} */  usedWith       = '';
+    /** @type {string} */  engineSerial   = '';
 
-    // Row 3 — part information
-    @track partNumberId;
-    @track partDescription = '';
-    @track noPartReason = '';
-    @track noPartReasonOptions = [];
+    // ── Row 3 — Part information ──────────────────────────────────────────────
+    /** @type {string|null} Id of the selected Part__c record */
+    partNumberId    = null;
+    /** @type {string} */
+    partDescription = '';
+    /** @type {string} */
+    noPartReason    = '';
 
-    // Collapsible section state
-    @track assetSectionOpen = true;
-    @track productSectionOpen = true;
+    // ── Post-save header state ────────────────────────────────────────────────
+    /** @type {string|null} Id stored for subsequent upserts */
+    caseId     = null;
+    /** @type {string} */
+    caseNumber = '';
+    /** @type {string} */
+    caseStatus = '';
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Wire — Picklist values for No_Causal_Part_Reason__c
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── UI feedback ───────────────────────────────────────────────────────────
+    /** @type {string} */
+    errorMessage = '';
+    /** @type {boolean} */
+    isSaving = false;
 
-    @wire(getObjectInfo, { objectApiName: 'Case' })
-    caseObjectInfo;
-
-    @wire(getPicklistValues, {
-        recordTypeId: '$caseObjectInfo.data.defaultRecordTypeId',
-        fieldApiName: NO_CAUSAL_PART_REASON_FIELD
-    })
-    wiredNoPartReasonValues({ data, error }) {
-        if (data) {
-            this.noPartReasonOptions = data.values.map(item => ({
-                label: item.label,
-                value: item.value
-            }));
-        } else if (error) {
-            this.noPartReasonOptions = [];
-        }
+    // ── Static options ────────────────────────────────────────────────────────
+    get noPartReasonOptions() {
+        return NO_PART_REASON_OPTIONS;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Getters
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Computed getters ──────────────────────────────────────────────────────
 
-    get isMachineUsageDisabled() {
-        return this.usageAvailable;
+    get isAssetSectionClosed() {
+        return !this.isAssetSectionOpen;
     }
 
-    get assetSectionClass() {
-        return this.assetSectionOpen
-            ? 'slds-section slds-is-open'
-            : 'slds-section';
+    get isProductSectionClosed() {
+        return !this.isProductSectionOpen;
     }
 
-    get productSectionClass() {
-        return this.productSectionOpen
-            ? 'slds-section slds-is-open'
-            : 'slds-section';
+    /** Displays 'New' until the case is first saved, then shows the draft status. */
+    get statusDisplay() {
+        return this.caseStatus ? this.caseStatus : 'New';
     }
 
-    get displayCaseNumber() {
-        return this.caseNumber ? this.caseNumber : '—';
+    // ── Section collapse handlers ─────────────────────────────────────────────
+
+    toggleAssetSection() {
+        this.isAssetSectionOpen = !this.isAssetSectionOpen;
     }
 
-    get displayStatus() {
-        return this.status ? this.status : 'New';
+    toggleProductSection() {
+        this.isProductSectionOpen = !this.isProductSectionOpen;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Header / Section Toggle Handlers
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Serial Number handlers ────────────────────────────────────────────────
 
-    handleToggleAssetSection() {
-        this.assetSectionOpen = !this.assetSectionOpen;
-    }
-
-    handleToggleProductSection() {
-        this.productSectionOpen = !this.productSectionOpen;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Asset / Serial Number Handlers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    handleAssetNotApplicableChange(event) {
-        this.assetNotApplicable = event.target.checked;
-    }
-
-    handleSerialNumberChange(event) {
+    /** Keeps the local serialNumber property in sync with the raw input value. */
+    handleSerialInput(event) {
         this.serialNumber = event.target.value;
     }
 
-    /** Trigger asset lookup on Enter key */
-    handleSerialNumberKeyUp(event) {
-        if (event.key === 'Enter' && this.serialNumber) {
+    /**
+     * Triggers the asset lookup when the user confirms with Enter or Tab.
+     * @param {KeyboardEvent} event
+     */
+    handleSerialKeydown(event) {
+        if (event.key === 'Enter' || event.key === 'Tab') {
             this._lookupAsset();
         }
     }
 
-    /** Trigger asset lookup on blur when field has a value */
-    handleSerialNumberBlur() {
+    /**
+     * Triggers the asset lookup on blur when the field is not empty.
+     * @param {FocusEvent} event
+     */
+    handleSerialBlur(event) {
         if (this.serialNumber) {
             this._lookupAsset();
         }
     }
 
-    // Guard: prevents double Apex call when Enter (onkeyup) is followed by blur
-    _lastLookedUpSerial = '';
+    /** Static toggle — no wiring required in MP-7. */
+    handleSerialNotApplicableToggle(event) {
+        this.serialNotApplicable = event.target.checked;
+    }
 
-    /** Imperative call to findAssetBySerial */
-    _lookupAsset() {
-        if (!this.serialNumber || this.serialNumber === this._lastLookedUpSerial) {
-            return;
+    /**
+     * Client-side clear: resets all asset-populated fields and the success flag.
+     * No Apex call needed.
+     */
+    handleClearSearch() {
+        this.serialNumber   = '';
+        this.assetId        = null;
+        this.assetFound     = false;
+        this.brand          = '';
+        this.machineType    = '';
+        this.series         = '';
+        this.modelNumber    = '';
+        this.unitOfMeasure  = '';
+        this.machineUsage   = '';
+        this.usageAvailable = false;
+        this.engineSerial   = '';
+        this.errorMessage   = '';
+    }
+
+    // ── Row 2 editable handlers ───────────────────────────────────────────────
+
+    handleMachineUsageChange(event) {
+        this.machineUsage = event.detail.value;
+    }
+
+    handleUsedWithChange(event) {
+        this.usedWith = event.detail.value;
+    }
+
+    // ── Row 3 handlers ────────────────────────────────────────────────────────
+
+    /**
+     * Called when the Part Number record picker value changes.
+     * Fetches Part Description imperatively; clears description when de-selected.
+     * @param {CustomEvent} event
+     */
+    handlePartChange(event) {
+        const selectedId = event.detail.recordId;
+        this.partNumberId = selectedId ?? null;
+
+        if (this.partNumberId) {
+            getPartDescription({ partId: this.partNumberId })
+                .then(description => {
+                    this.partDescription = description ?? '';
+                })
+                .catch(error => {
+                    this.partDescription = '';
+                    this._setError(error);
+                });
+        } else {
+            this.partDescription = '';
         }
-        this._lastLookedUpSerial = this.serialNumber;
+    }
 
-        findAssetBySerial({ serialNumber: this.serialNumber })
+    handleNoPartReasonChange(event) {
+        this.noPartReason = event.detail.value;
+    }
+
+    // ── Footer handlers ───────────────────────────────────────────────────────
+
+    /**
+     * Builds a Case sObject from the 11 Product Information fields (TDD §4.4)
+     * and calls saveCaseAsDraft.  Engine Serial # is intentionally excluded.
+     */
+    handleSave() {
+        this.errorMessage = '';
+        this.isSaving     = true;
+
+        const caseRecord = {
+            ...(this.caseId ? { Id: this.caseId } : {}),
+            AssetId:                  this.assetId        || undefined,
+            Brand__c:                 this.brand          || undefined,
+            Machine_Type__c:          this.machineType    || undefined,
+            Series__c:                this.series         || undefined,
+            Model_Number__c:          this.modelNumber    || undefined,
+            Unit_of_Measure__c:       this.unitOfMeasure  || undefined,
+            Machine_Usage__c:         this.machineUsage   || undefined,
+            Part_Number__c:           this.partNumberId   || undefined,
+            Part_Description__c:      this.partDescription || undefined,
+            No_Causal_Part_Reason__c: this.noPartReason   || undefined,
+            Used_With__c:             this.usedWith       || undefined
+        };
+
+        saveCaseAsDraft({ caseRecord })
             .then(result => {
-                if (result) {
-                    this.assetId        = result.assetId;
-                    this.brand          = result.brand          || '';
-                    this.machineType    = result.machineType    || '';
-                    this.series         = result.series         || '';
-                    this.modelNumber    = result.modelNumber    || '';
-                    this.unitOfMeasure  = result.unitOfMeasure  || '';
-                    this.machineUsage   = result.machineUsage   || '';
-                    this.usageAvailable = result.usageAvailable || false;
-                    this.engineSerial   = result.engineSerial   || '';
-                    this.assetFound     = true;
-                } else {
-                    this._clearProductFields();
-                    this.dispatchEvent(new ShowToastEvent({
-                        title:   'Asset Not Found',
-                        message: 'No asset was found for the entered serial number.',
-                        variant: 'warning'
-                    }));
-                }
+                this.caseId     = result.caseId;
+                this.caseNumber = result.caseNumber;
+                this.caseStatus = result.status;
+                this.isSaving   = false;
             })
             .catch(error => {
-                this._clearProductFields();
-                this.dispatchEvent(new ShowToastEvent({
-                    title:   'Error',
-                    message: error.body?.message || 'An error occurred while searching for the asset.',
-                    variant: 'error'
-                }));
+                this.isSaving = false;
+                this._setError(error);
             });
     }
 
-    /** Clear Search button — resets all product info fields client-side */
-    handleClearSearch() {
-        this.serialNumber = '';
-        this._lastLookedUpSerial = '';
-        this._clearProductFields();
+    /** Stub — to be implemented in MP-5. */
+    handleSubmit() {
+        // No-op in MP-7 scope
     }
 
-    _clearProductFields() {
-        this.assetId        = undefined;
-        this.assetFound     = false;
+    /** Stub — to be implemented in MP-5. */
+    handleResolve() {
+        // No-op in MP-7 scope
+    }
+
+    /**
+     * Resets all reactive properties to their initial state.
+     * Stays on page — no navigation.
+     */
+    handleCancel() {
+        this.serialNumber        = '';
+        this.serialNotApplicable = false;
+        this.assetId             = null;
+        this.assetFound          = false;
+        this.brand               = '';
+        this.machineType         = '';
+        this.series              = '';
+        this.modelNumber         = '';
+        this.unitOfMeasure       = '';
+        this.machineUsage        = '';
+        this.usageAvailable      = false;
+        this.usedWith            = '';
+        this.engineSerial        = '';
+        this.partNumberId        = null;
+        this.partDescription     = '';
+        this.noPartReason        = '';
+        this.caseId              = null;
+        this.caseNumber          = '';
+        this.caseStatus          = '';
+        this.errorMessage        = '';
+        this.isSaving            = false;
+    }
+
+    // ── Stub action button handlers (header) ──────────────────────────────────
+
+    handleAddFavorite() { /* stub */ }
+    handleCopy()        { /* stub */ }
+    handlePrint()       { /* stub */ }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Calls findAssetBySerial imperatively.
+     * Populates product info fields on success; shows an error on failure.
+     */
+    _lookupAsset() {
+        const serial = (this.serialNumber ?? '').trim();
+        if (!serial) {
+            return;
+        }
+
+        this.errorMessage = '';
+
+        findAssetBySerial({ serialNumber: serial })
+            .then(info => {
+                if (info) {
+                    this.assetId        = info.assetId;
+                    this.brand          = info.brand          ?? '';
+                    this.machineType    = info.machineType    ?? '';
+                    this.series         = info.series         ?? '';
+                    this.modelNumber    = info.modelNumber    ?? '';
+                    this.unitOfMeasure  = info.unitOfMeasure  ?? '';
+                    this.machineUsage   = info.machineUsage   ?? '';
+                    this.usageAvailable = info.usageAvailable ?? false;
+                    this.engineSerial   = info.engineSerial   ?? '';
+                    this.assetFound     = true;
+                } else {
+                    // Serial number not matched — clear fields
+                    this._clearAssetFields();
+                    this.assetFound = false;
+                }
+            })
+            .catch(error => {
+                this._clearAssetFields();
+                this.assetFound = false;
+                this._setError(error);
+            });
+    }
+
+    /** Resets all asset-sourced fields without touching serial number or other user input. */
+    _clearAssetFields() {
+        this.assetId        = null;
         this.brand          = '';
         this.machineType    = '';
         this.series         = '';
@@ -204,126 +332,17 @@ export default class CaseCreate extends LightningElement {
         this.engineSerial   = '';
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Product Information — Row 2 Handlers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    handleMachineUsageChange(event) {
-        this.machineUsage = event.target.value;
-    }
-
-    handleUsedWithChange(event) {
-        this.usedWith = event.target.value;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Product Information — Row 3 Handlers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /** lightning-record-picker change — fires when user selects or clears a Part */
-    handlePartNumberChange(event) {
-        const selectedId = event.detail.recordId;
-
-        if (selectedId) {
-            this.partNumberId = selectedId;
-            getPartDescription({ partId: selectedId })
-                .then(description => {
-                    this.partDescription = description || '';
-                })
-                .catch(error => {
-                    this.partDescription = '';
-                    this.dispatchEvent(new ShowToastEvent({
-                        title:   'Error',
-                        message: error.body?.message || 'Could not retrieve part description.',
-                        variant: 'error'
-                    }));
-                });
+    /**
+     * Extracts a human-readable message from an Apex or JS error and stores it.
+     * @param {Error|{body:{message:string}}|{message:string}} error
+     */
+    _setError(error) {
+        if (error?.body?.message) {
+            this.errorMessage = error.body.message;
+        } else if (error?.message) {
+            this.errorMessage = error.message;
         } else {
-            // Part removed — clear description
-            this.partNumberId    = undefined;
-            this.partDescription = '';
+            this.errorMessage = 'An unexpected error occurred. Please try again.';
         }
-    }
-
-    handleNoPartReasonChange(event) {
-        this.noPartReason = event.detail.value;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Footer Button Handlers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    handleSave() {
-        const caseRecord = {
-            AssetId:                  this.assetId,
-            Brand__c:                 this.brand,
-            Machine_Type__c:          this.machineType,
-            Series__c:                this.series,
-            Model_Number__c:          this.modelNumber,
-            Unit_of_Measure__c:       this.unitOfMeasure,
-            Machine_Usage__c:         this.machineUsage,
-            Part_Number__c:           this.partNumberId,
-            Part_Description__c:      this.partDescription,
-            No_Causal_Part_Reason__c: this.noPartReason,
-            Used_With__c:             this.usedWith
-        };
-
-        // Include the caseId for upsert on subsequent saves
-        if (this.caseId) {
-            caseRecord.Id = this.caseId;
-        }
-
-        saveCaseAsDraft({ caseRecord })
-            .then(result => {
-                this.caseId     = result.caseId;
-                this.caseNumber = result.caseNumber;
-                this.status     = result.status;
-
-                this.dispatchEvent(new ShowToastEvent({
-                    title:   'Case Saved',
-                    message: 'Case ' + result.caseNumber + ' saved as Draft.',
-                    variant: 'success'
-                }));
-            })
-            .catch(error => {
-                this.dispatchEvent(new ShowToastEvent({
-                    title:   'Save Failed',
-                    message: error.body?.message || 'An error occurred while saving the case.',
-                    variant: 'error'
-                }));
-            });
-    }
-
-    /** Submit — out of scope for MP-7; stub only */
-    handleSubmit() {
-        this.dispatchEvent(new ShowToastEvent({
-            title:   'Not Available',
-            message: 'Submit will be available in a future release.',
-            variant: 'info'
-        }));
-    }
-
-    /** Resolve — out of scope for MP-7; stub only */
-    handleResolve() {
-        this.dispatchEvent(new ShowToastEvent({
-            title:   'Not Available',
-            message: 'Resolve will be available in a future release.',
-            variant: 'info'
-        }));
-    }
-
-    /** Cancel — clears all reactive properties */
-    handleCancel() {
-        this.caseId              = undefined;
-        this.caseNumber          = '';
-        this.status              = '';
-        this.serialNumber        = '';
-        this._lastLookedUpSerial = '';
-        this.assetNotApplicable  = false;
-        this._clearProductFields();
-        this.usedWith           = '';
-        this.partNumberId       = undefined;
-        this.partDescription    = '';
-        this.noPartReason       = '';
     }
 }

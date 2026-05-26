@@ -1,319 +1,297 @@
 <template>
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- PAGE WRAPPER                                                       -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="case-create-wrapper">
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         Dark header bar
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="case-header-bar">
+        <span class="case-header-title">Create a Support Case</span>
+    </div>
 
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <!-- DARK TOP BAR — "Create a Support Case"                         -->
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <div class="page-title-bar">
-            <h1 class="page-title-text">Create a Support Case</h1>
-        </div>
-
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <!-- SUB-HEADER — Record type, Case Number, Status, Action buttons  -->
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <div class="slds-card case-subheader">
-            <div class="slds-grid slds-wrap slds-gutters_small">
-
-                <!-- Left: Record type label, Case Number, Status -->
-                <div class="slds-col slds-size_1-of-1 slds-large-size_8-of-12">
-                    <p class="slds-text-heading_small slds-text-color_default record-type-label">
-                        Parts Technical Help
-                    </p>
-                    <p class="case-number-display">{displayCaseNumber}</p>
-                    <p class="slds-text-body_small slds-m-top_xx-small status-label">Status</p>
-                    <p class="slds-text-body_regular slds-text-title_bold">{displayStatus}</p>
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         Page header row
+         Left  : record type label + case number (after save) + status
+         Right : stub action buttons + required legend
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="slds-page-header slds-page-header__row case-page-header">
+        <div class="slds-page-header__col-title">
+            <div class="slds-media">
+                <div class="slds-media__body">
+                    <p class="case-record-type-label">Parts Technical Help</p>
+                    <template if:true={caseNumber}>
+                        <p class="case-number-display">{caseNumber}</p>
+                    </template>
+                    <p class="case-status-label">Status</p>
+                    <p class="case-status-value">{statusDisplay}</p>
                 </div>
-
-                <!-- Right: Action buttons + Required legend -->
-                <div class="slds-col slds-size_1-of-1 slds-large-size_4-of-12 slds-text-align_right">
-                    <div class="slds-button-group slds-m-bottom_x-small" role="group">
-                        <button class="slds-button slds-button_neutral action-btn" type="button">
-                            <lightning-icon
-                                icon-name="utility:favorite"
-                                size="xx-small"
-                                class="slds-m-right_xx-small">
-                            </lightning-icon>
-                            Add Favorite
-                        </button>
-                        <button class="slds-button slds-button_neutral action-btn" type="button">
-                            Copy
-                        </button>
-                        <button class="slds-button slds-button_neutral action-btn" type="button">
-                            Print to PDF
-                        </button>
-                    </div>
-                    <p class="required-legend slds-text-body_small">
-                        <span class="slds-required">*</span>&nbsp;= Required Information
-                    </p>
-                </div>
-
             </div>
         </div>
+        <div class="slds-page-header__col-actions">
+            <div class="slds-page-header__controls">
+                <div class="slds-page-header__control">
+                    <button class="slds-button slds-button_neutral" onclick={handleAddFavorite}>
+                        <lightning-icon icon-name="utility:favorite" size="x-small" class="slds-button__icon slds-button__icon_left"></lightning-icon>
+                        Add Favorite
+                    </button>
+                    <button class="slds-button slds-button_neutral" onclick={handleCopy}>Copy</button>
+                    <button class="slds-button slds-button_neutral" onclick={handlePrint}>Print to PDF</button>
+                </div>
+            </div>
+            <p class="case-required-legend">
+                <abbr class="slds-required" title="required">*</abbr> = Required Information
+            </p>
+        </div>
+    </div>
 
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <!-- SECTION 1: Asset / Serial Number Information                   -->
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <div class={assetSectionClass}>
-            <h3 class="slds-section__title slds-theme_shade">
-                <button
-                    class="slds-button slds-section__title-action"
-                    type="button"
-                    onclick={handleToggleAssetSection}>
-                    <lightning-icon
-                        icon-name="utility:chevrondown"
-                        size="x-small"
-                        class="slds-section__title-action-icon slds-button__icon slds-button__icon_left">
-                    </lightning-icon>
-                    <span class="slds-truncate">Asset /Serial Number Information</span>
-                </button>
-            </h3>
-
-            <div class="slds-section__content slds-p-around_medium">
-
-                <!-- Toggle: Asset/Serial Number Not Applicable -->
-                <div class="slds-m-bottom_small">
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         Section 1 — Asset / Serial Number Information
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="slds-section slds-is-open case-section">
+        <h3 class="slds-section__title">
+            <button
+                aria-controls="asset-section-content"
+                aria-expanded={isAssetSectionOpen}
+                class="slds-button slds-section__title-action"
+                onclick={toggleAssetSection}
+            >
+                <lightning-icon
+                    icon-name="utility:switch"
+                    size="x-small"
+                    class="slds-section__title-action-icon slds-button__icon_left"
+                ></lightning-icon>
+                <span class="slds-truncate">Asset /Serial Number Information</span>
+            </button>
+        </h3>
+        <div aria-hidden={isAssetSectionClosed} class="slds-section__content" id="asset-section-content">
+            <!-- Toggle: Asset/Serial Number Not Applicable -->
+            <div class="slds-form-element slds-m-bottom_small">
+                <label class="slds-checkbox_toggle slds-grid">
+                    <span class="slds-form-element__label slds-m-bottom_none">Asset/Serial Number Not Applicable</span>
                     <lightning-input
                         type="toggle"
-                        label="Asset/Serial Number Not Applicable"
-                        checked={assetNotApplicable}
-                        onchange={handleAssetNotApplicableChange}>
-                    </lightning-input>
-                </div>
+                        checked={serialNotApplicable}
+                        onchange={handleSerialNotApplicableToggle}
+                        variant="label-hidden"
+                    ></lightning-input>
+                </label>
+            </div>
 
-                <!-- Serial Number input + Clear Search -->
-                <div class="slds-grid slds-wrap slds-gutters_small slds-m-bottom_x-small">
-                    <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-large-size_3-of-12">
-                        <div class="slds-form-element">
-                            <label class="slds-form-element__label" for="serialNumberInput">
-                                <abbr class="slds-required" title="required">*</abbr>
-                                ASSET/SERIAL NUMBER
-                            </label>
-                            <div class="slds-form-element__control">
-                                <input
-                                    id="serialNumberInput"
-                                    type="text"
-                                    class="slds-input"
-                                    value={serialNumber}
-                                    onchange={handleSerialNumberChange}
-                                    onkeyup={handleSerialNumberKeyUp}
-                                    onblur={handleSerialNumberBlur}
-                                    placeholder=""
-                                />
-                            </div>
+            <!-- Asset/Serial Number input row -->
+            <div class="slds-grid slds-gutters slds-m-bottom_small case-serial-row">
+                <div class="slds-col slds-size_3-of-12">
+                    <div class="slds-form-element">
+                        <label class="slds-form-element__label" for="serialInput">
+                            <abbr class="slds-required" title="required">*</abbr>
+                            ASSET/SERIAL NUMBER
+                        </label>
+                        <div class="slds-form-element__control">
+                            <input
+                                type="text"
+                                id="serialInput"
+                                class="slds-input"
+                                value={serialNumber}
+                                oninput={handleSerialInput}
+                                onkeydown={handleSerialKeydown}
+                                onblur={handleSerialBlur}
+                                placeholder=""
+                            />
                         </div>
                     </div>
-                    <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12 clear-search-col">
-                        <button
-                            type="button"
-                            class="slds-button slds-button_reset clear-search-link"
-                            onclick={handleClearSearch}>
-                            Clear Search
-                        </button>
-                    </div>
                 </div>
-
-                <!-- Success message: shown only when assetFound === true -->
-                <template lwc:if={assetFound}>
-                    <div class="asset-found-message slds-m-top_x-small">
-                        <lightning-icon
-                            icon-name="utility:success"
-                            variant="success"
-                            size="x-small"
-                            class="slds-m-right_xx-small">
-                        </lightning-icon>
-                        <span class="asset-found-text">
-                            VIN/Serial Number found. Product information has been added below.
-                        </span>
-                    </div>
-                </template>
-
+                <div class="slds-col slds-size_2-of-12 slds-align-bottom">
+                    <button class="slds-button case-clear-search" onclick={handleClearSearch}>
+                        Clear Search
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <!-- SECTION 2: Product Information                                  -->
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <div class={productSectionClass}>
-            <h3 class="slds-section__title slds-theme_shade">
-                <button
-                    class="slds-button slds-section__title-action"
-                    type="button"
-                    onclick={handleToggleProductSection}>
+            <!-- Success message — visible only when assetFound = true -->
+            <template if:true={assetFound}>
+                <div class="case-success-message">
                     <lightning-icon
-                        icon-name="utility:chevrondown"
+                        icon-name="utility:success"
                         size="x-small"
-                        class="slds-section__title-action-icon slds-button__icon slds-button__icon_left">
-                    </lightning-icon>
-                    <span class="slds-truncate">Product Information</span>
-                </button>
-            </h3>
-
-            <div class="slds-section__content slds-p-around_medium">
-
-                <!-- ─── Row 1: Brand | Machine Type | Series | Model Number ─── -->
-                <div class="slds-grid slds-wrap slds-gutters_small slds-m-bottom_medium">
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
-                        <lightning-input
-                            type="text"
-                            label="BRAND"
-                            value={brand}
-                            disabled
-                            required>
-                        </lightning-input>
-                    </div>
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
-                        <lightning-input
-                            type="text"
-                            label="MACHINE TYPE"
-                            value={machineType}
-                            disabled
-                            required>
-                        </lightning-input>
-                    </div>
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
-                        <lightning-input
-                            type="text"
-                            label="SERIES"
-                            value={series}
-                            disabled
-                            required>
-                        </lightning-input>
-                    </div>
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
-                        <lightning-input
-                            type="text"
-                            label="MODEL NUMBER"
-                            value={modelNumber}
-                            disabled
-                            required>
-                        </lightning-input>
-                    </div>
-
+                        variant="success"
+                        class="case-success-icon"
+                    ></lightning-icon>
+                    <span class="case-success-text">
+                        <em>VIN/Serial Number found. Product information has been added below.</em>
+                    </span>
                 </div>
+            </template>
+        </div>
+    </div>
 
-                <!-- ─── Row 2: UoM | Machine Usage | Used With | Engine Serial ─── -->
-                <div class="slds-grid slds-wrap slds-gutters_small slds-m-bottom_medium">
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         Section 2 — Product Information
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="slds-section slds-is-open case-section">
+        <h3 class="slds-section__title">
+            <button
+                aria-controls="product-section-content"
+                aria-expanded={isProductSectionOpen}
+                class="slds-button slds-section__title-action"
+                onclick={toggleProductSection}
+            >
+                <lightning-icon
+                    icon-name="utility:switch"
+                    size="x-small"
+                    class="slds-section__title-action-icon slds-button__icon_left"
+                ></lightning-icon>
+                <span class="slds-truncate">Product Information</span>
+            </button>
+        </h3>
+        <div aria-hidden={isProductSectionClosed} class="slds-section__content" id="product-section-content">
 
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
+            <!-- Row 1: Brand | Machine Type | Series | Model Number (all required, disabled) -->
+            <div class="slds-grid slds-gutters slds-m-bottom_small">
+                <div class="slds-col slds-size_3-of-12">
+                    <lightning-input
+                        label="BRAND"
+                        value={brand}
+                        disabled
+                        required
+                        class="case-disabled-input"
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-size_3-of-12">
+                    <lightning-input
+                        label="MACHINE TYPE"
+                        value={machineType}
+                        disabled
+                        required
+                        class="case-disabled-input"
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-size_3-of-12">
+                    <lightning-input
+                        label="SERIES"
+                        value={series}
+                        disabled
+                        required
+                        class="case-disabled-input"
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-size_3-of-12">
+                    <lightning-input
+                        label="MODEL NUMBER"
+                        value={modelNumber}
+                        disabled
+                        required
+                        class="case-disabled-input"
+                    ></lightning-input>
+                </div>
+            </div>
+
+            <!-- Row 2: Unit of Measure | Machine Usage (conditional) | Used With | Engine Serial # -->
+            <div class="slds-grid slds-gutters slds-m-bottom_small">
+                <div class="slds-col slds-size_3-of-12">
+                    <lightning-input
+                        label="UNIT OF MEASURE"
+                        value={unitOfMeasure}
+                        disabled
+                        class="case-disabled-input"
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-size_3-of-12">
+                    <!-- Machine Usage: disabled when asset has usage value, editable otherwise -->
+                    <template if:true={usageAvailable}>
                         <lightning-input
-                            type="text"
-                            label="UNIT OF MEASURE"
-                            value={unitOfMeasure}
-                            disabled>
-                        </lightning-input>
-                    </div>
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
-                        <lightning-input
-                            type="text"
                             label="MACHINE USAGE"
                             value={machineUsage}
-                            disabled={isMachineUsageDisabled}
-                            onchange={handleMachineUsageChange}>
-                        </lightning-input>
-                    </div>
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
+                            disabled
+                            class="case-disabled-input"
+                        ></lightning-input>
+                    </template>
+                    <template if:false={usageAvailable}>
                         <lightning-input
-                            type="text"
-                            label="USED WITH"
-                            value={usedWith}
-                            onchange={handleUsedWithChange}>
-                        </lightning-input>
-                    </div>
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
-                        <lightning-input
-                            type="text"
-                            label="ENGINE SERIAL #"
-                            value={engineSerial}
-                            disabled>
-                        </lightning-input>
-                    </div>
-
+                            label="MACHINE USAGE"
+                            value={machineUsage}
+                            onchange={handleMachineUsageChange}
+                        ></lightning-input>
+                    </template>
                 </div>
+                <div class="slds-col slds-size_3-of-12">
+                    <lightning-input
+                        label="USED WITH"
+                        value={usedWith}
+                        onchange={handleUsedWithChange}
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-size_3-of-12">
+                    <lightning-input
+                        label="ENGINE SERIAL #"
+                        value={engineSerial}
+                        disabled
+                        class="case-disabled-input"
+                    ></lightning-input>
+                </div>
+            </div>
 
-                <!-- ─── Row 3: Part Number | Part Description | No Part Reason ─── -->
-                <div class="slds-grid slds-wrap slds-gutters_small">
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
-                        <div class="slds-form-element">
-                            <label class="slds-form-element__label">PART NUMBER</label>
-                            <div class="slds-form-element__control">
-                                <lightning-record-picker
-                                    label=""
-                                    object-api-name="Part__c"
-                                    value={partNumberId}
-                                    placeholder="Search"
-                                    onchange={handlePartNumberChange}>
-                                </lightning-record-picker>
-                            </div>
+            <!-- Row 3: Part Number | Part Description | No Part Reason -->
+            <div class="slds-grid slds-gutters slds-m-bottom_small">
+                <div class="slds-col slds-size_3-of-12">
+                    <div class="slds-form-element">
+                        <label class="slds-form-element__label">PART NUMBER</label>
+                        <div class="slds-form-element__control">
+                            <lightning-record-picker
+                                label="PART NUMBER"
+                                placeholder="Search"
+                                object-api-name="Part__c"
+                                value={partNumberId}
+                                onchange={handlePartChange}
+                                variant="label-hidden"
+                            ></lightning-record-picker>
                         </div>
                     </div>
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
-                        <lightning-input
-                            type="text"
-                            label="PART DESCRIPTION"
-                            value={partDescription}
-                            disabled>
-                        </lightning-input>
-                    </div>
-
-                    <div class="slds-col slds-size_1-of-2 slds-large-size_1-of-4">
-                        <lightning-combobox
-                            label="NO PART REASON"
-                            value={noPartReason}
-                            placeholder="Select"
-                            options={noPartReasonOptions}
-                            onchange={handleNoPartReasonChange}>
-                        </lightning-combobox>
-                    </div>
-
-                    <!-- Empty 4th column to maintain grid alignment -->
-                    <div class="slds-col slds-large-size_1-of-4 slds-hide_small slds-hide_medium"></div>
-
                 </div>
-
+                <div class="slds-col slds-size_3-of-12">
+                    <lightning-input
+                        label="PART DESCRIPTION"
+                        value={partDescription}
+                        disabled
+                        class="case-disabled-input"
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-size_3-of-12">
+                    <lightning-combobox
+                        label="NO PART REASON"
+                        value={noPartReason}
+                        placeholder="Select"
+                        options={noPartReasonOptions}
+                        onchange={handleNoPartReasonChange}
+                    ></lightning-combobox>
+                </div>
             </div>
-        </div>
 
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <!-- FOOTER — Save | Submit | Resolve | Cancel                      -->
-        <!-- ─────────────────────────────────────────────────────────────── -->
-        <div class="case-footer slds-p-around_medium slds-text-align_center">
-            <button
-                class="slds-button slds-button_brand save-btn"
-                type="button"
-                onclick={handleSave}>
-                Save
-            </button>
-            <button
-                class="slds-button slds-button_neutral footer-btn"
-                type="button"
-                onclick={handleSubmit}>
-                Submit
-            </button>
-            <button
-                class="slds-button slds-button_neutral footer-btn"
-                type="button"
-                onclick={handleResolve}>
-                Resolve
-            </button>
-            <button
-                class="slds-button slds-button_neutral footer-btn"
-                type="button"
-                onclick={handleCancel}>
-                Cancel
-            </button>
         </div>
+    </div>
 
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         Error / toast notification area
+    ════════════════════════════════════════════════════════════════════════ -->
+    <template if:true={errorMessage}>
+        <div class="slds-notify slds-notify_alert slds-theme_error slds-m-top_small" role="alert">
+            <span class="slds-assistive-text">error</span>
+            <span class="slds-icon_container slds-icon-utility-error slds-m-right_x-small">
+                <lightning-icon icon-name="utility:error" size="x-small" variant="inverse"></lightning-icon>
+            </span>
+            <h2>{errorMessage}</h2>
+        </div>
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         Sticky footer — Save (primary red) | Submit | Resolve | Cancel
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="case-footer">
+        <button
+            class="slds-button slds-button_brand case-save-btn"
+            onclick={handleSave}
+            disabled={isSaving}
+        >
+            <template if:true={isSaving}>Saving...</template>
+            <template if:false={isSaving}>Save</template>
+        </button>
+        <button class="slds-button slds-button_outline-brand" onclick={handleSubmit}>Submit</button>
+        <button class="slds-button slds-button_outline-brand" onclick={handleResolve}>Resolve</button>
+        <button class="slds-button slds-button_outline-brand" onclick={handleCancel}>Cancel</button>
     </div>
 </template>
