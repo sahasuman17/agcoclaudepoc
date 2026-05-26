@@ -1,32 +1,181 @@
-/* ── Header bar ────────────────────────────────────────────────────────────── */
-.header-bar {
-    background-color: #16325c;
-    color: white;
-    padding: 0.5rem 1rem;
-    font-size: 1.1rem;
+/* ═══════════════════════════════════════════════════════════════════════════
+   caseCreate.css — MP-7: Product Information Section
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Page wrapper ──────────────────────────────────────────────────────── */
+.case-create-wrapper {
+    background-color: #f3f2f2;
+    min-height: 100vh;
+    padding-bottom: 2rem;
 }
 
-/* ── Sub-header ─────────────────────────────────────────────────────────────── */
-.subheader {
-    border-bottom: 1px solid #dddbda;
-    margin-bottom: 1rem;
+/* ─── Dark top bar ──────────────────────────────────────────────────────── */
+.page-title-bar {
+    background-color: #1a1a1a;
+    padding: 0.75rem 1.5rem;
+    text-align: center;
 }
 
-.case-number {
+.page-title-text {
+    color: #ffffff;
     font-size: 1rem;
-    color: #444;
+    font-weight: 600;
+    margin: 0;
 }
 
-/* ── Save button — red brand colour (CNH-style) ─────────────────────────────── */
-.save-btn lightning-button {
-    --sds-c-button-brand-color-background: #c23934;
-    --sds-c-button-brand-color-background-hover: #a61c17;
-    --sds-c-button-brand-color-border: #c23934;
+/* ─── Sub-header card ───────────────────────────────────────────────────── */
+.case-subheader {
+    background-color: #ffffff;
+    border-radius: 0;
+    border-bottom: 1px solid #dddbda;
+    padding: 1rem 1.5rem;
+    margin: 0;
+    box-shadow: none;
 }
 
-/* ── Footer buttons ─────────────────────────────────────────────────────────── */
-.footer-buttons {
+.record-type-label {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: #181818;
+    margin-bottom: 0.125rem;
+}
+
+.case-number-display {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #181818;
+    margin-bottom: 0.5rem;
+    min-height: 1.5rem;
+}
+
+.status-label {
+    color: #706e6b;
+    font-size: 0.75rem;
+    margin-bottom: 0.125rem;
+}
+
+/* ─── Action buttons ────────────────────────────────────────────────────── */
+.action-btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-color: #dddbda;
+    color: #3e3e3c;
+}
+
+.required-legend {
+    color: #706e6b;
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.required-legend .slds-required {
+    color: #c23934;
+    font-weight: 700;
+}
+
+/* ─── Collapsible sections ──────────────────────────────────────────────── */
+.slds-section {
+    background-color: #ffffff;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+    margin: 0.75rem 1rem;
+}
+
+.slds-section__title {
+    background-color: #fafaf9;
+    border-bottom: 1px solid #dddbda;
+    padding: 0;
+}
+
+.slds-section__title-action {
+    width: 100%;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    color: #3e3e3c;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}
+
+/* ─── Clear Search link ─────────────────────────────────────────────────── */
+.clear-search-col {
     display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
+    align-items: flex-end;
+    padding-bottom: 0.25rem;
+}
+
+.clear-search-link {
+    color: #c23934;
+    font-size: 0.8125rem;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.clear-search-link:hover {
+    text-decoration: underline;
+}
+
+/* ─── Asset found success message ───────────────────────────────────────── */
+.asset-found-message {
+    display: flex;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.asset-found-text {
+    color: #2e844a;
+    font-style: italic;
+    font-size: 0.8125rem;
+}
+
+/* ─── Disabled lightning-input — preserve boxed border appearance ─────── */
+/* lightning-input with disabled renders without the input border by default;
+   these overrides restore the visual box to match the mockup */
+:host .slds-form-element .slds-input:disabled,
+:host lightning-input[disabled] .slds-input {
+    background-color: #ffffff;
+    border: 1px solid #dddbda;
+    color: #3e3e3c;
+    cursor: default;
+    -webkit-text-fill-color: #3e3e3c;
+    opacity: 1;
+}
+
+/* ─── Footer buttons ────────────────────────────────────────────────────── */
+.case-footer {
+    background-color: #ffffff;
+    border-top: 1px solid #dddbda;
+    margin: 0 1rem;
+    border-radius: 0 0 0.25rem 0.25rem;
+}
+
+.save-btn {
+    background-color: #ba0517;
+    border-color: #ba0517;
+    color: #ffffff;
+    font-weight: 600;
+    min-width: 7rem;
+    margin-right: 0.5rem;
+}
+
+.save-btn:hover,
+.save-btn:focus {
+    background-color: #8e0311;
+    border-color: #8e0311;
+    color: #ffffff;
+}
+
+.footer-btn {
+    min-width: 7rem;
+    margin-right: 0.5rem;
+    color: #ba0517;
+    border-color: #ba0517;
+}
+
+.footer-btn:hover,
+.footer-btn:focus {
+    background-color: #fdf3f3;
+    color: #8e0311;
+    border-color: #8e0311;
 }
